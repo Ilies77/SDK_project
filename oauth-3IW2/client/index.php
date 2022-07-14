@@ -1,9 +1,14 @@
 <?php
 
 define("CLIENT_ID", '67dc2be521bec2ff862d3ab057de216b');
-define("FB_CLIENT_ID", '1311135729390173');
 define("CLIENT_SECRET", '04054cf433eeb3976252c81b6d657fda');
-define("FB_CLIENT_SECRET", 'fc5e25661fe961ab85d130779357541e');
+define("FB_CLIENT_ID", '439698237646679');
+define("FB_CLIENT_SECRET", 'f388515768af186b09562a9897c2605d');
+define("DISCORD_CLIENT_ID", '993911514547355658');
+define("DISCORD_CLIENT_SECRET", '78c8536a4b11c13ce6e02c848e7fafe754229fd20bb582b3a2d6e244b065b109');
+
+
+
 
 // Create a login page with a link to oauth
 function login()
@@ -28,8 +33,15 @@ function login()
         "scope"=>"public_profile,email",
         "redirect_uri"=>"https://localhost/fb_oauth_success",
     ]);
+    $discordQueryParams = http_build_query([
+        "state"=>bin2hex(random_bytes(16)),
+        "client_id"=> DISCORD_CLIENT_ID,
+        'code'=> code,
+        "redirect_uri"=>"https://localhost/discord_oauth_success",
+    ]);
     echo "<a href=\"http://localhost:8080/auth?{$queryParams}\">Login with Oauth-Server</a><br>";
-    echo "<a href=\"https://www.facebook.com/v13.0/dialog/oauth?{$fbQueryParams}\">Login with Facebook</a>";
+    echo "<a href=\"https://www.facebook.com/v13.0/dialog/oauth?{$fbQueryParams}\">Login with Facebook</a><br>";
+    echo "<a href=\"https://discord.com/api/oauth2/authorize?{$discordQueryParams}&redirect_uri=https%3A%2F%2Flocalhost%2Fdiscord_oauth_success&response_type=code&scope=identify%20email\">Login with Discord</a>";
 }
 
 // get token from code then get user info
@@ -78,6 +90,33 @@ function callback()
     var_dump(json_decode($response, true));
 }
 
+// Discord oauth: exchange code with token then get user info
+function discordcallback()
+{
+    // $token = getToken("https://discordapp.com/api/oauth2/token", DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET);
+    // $user = getDiscordUser($token);
+    // $unifiedUser = (fn () => [
+    //     "id" => $user["id"],
+    // ])();
+     echo "Vous êtes bien connecté";
+
+}
+
+function getDiscordUser($token)
+{
+    $context = stream_context_create([
+        "http"=>[
+            "header"=>"Authorization: Bearer {$token}"
+        ]
+    ]);
+    $response = file_get_contents("https://discordapp.com/api/oauth2/authorize", false, $context);
+    // if (!$response) {
+    //     // echo $http_response_header;
+    //     // return;
+    // }
+    // return json_decode($response, true);
+}
+
 // Facebook oauth: exchange code with token then get user info
 function fbcallback()
 {
@@ -85,13 +124,16 @@ function fbcallback()
     $user = getFbUser($token);
     $unifiedUser = (fn () => [
         "id" => $user["id"],
-        "name" => $user["name"],
         "email" => $user["email"],
         "firstName" => $user['first_name'],
         "lastName" => $user['last_name'],
     ])();
     var_dump($unifiedUser);
+    echo"<br>";
+    
+    echo "Bonjour ".$user['last_name']." ".$user['first_name']." , vous êtes bien connecté à votre compte Facebook: ".$user["email"];
 }
+
 function getFbUser($token)
 {
     $context = stream_context_create([
@@ -106,6 +148,7 @@ function getFbUser($token)
     }
     return json_decode($response, true);
 }
+
 function getToken($baseUrl, $clientId, $clientSecret)
 {
     ["code"=> $code, "state" => $state] = $_GET;
@@ -138,6 +181,9 @@ switch (strtok($route, "?")) {
         break;
     case '/fb_oauth_success':
         fbcallback();
+        break;
+     case '/discord_oauth_success':
+        discordcallback();
         break;
     default:
         http_response_code(404);
